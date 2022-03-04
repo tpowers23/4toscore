@@ -19,14 +19,22 @@ io.on('connection', function (socket)  {
 
     players.push(socket.id);
 
-    console.log(players.length);
+    let coinFlip = Math.floor(Math.random() * 2);
+
     if (players.length === 1) {
         io.emit('isPlayerA');
-        console.log('player A emitted');
-    };
+    }
+
+    if (players.length === 2){
+        io.emit('whoseTurn', coinFlip);
+    }
 
     socket.on('diskDropped', function(moveCol, isPlayerA){
         io.emit('moveMade', moveCol, isPlayerA);
+    });
+
+    socket.on('gameOver', (winner) => {
+        io.emit('gameOver', winner);
     });
 
     socket.on('disconnect', () => {
