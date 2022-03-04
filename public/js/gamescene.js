@@ -1,3 +1,4 @@
+
 export default class GameScene extends Phaser.Scene {
     constructor() {
         super({ key: 'GameScene' })
@@ -12,6 +13,7 @@ export default class GameScene extends Phaser.Scene {
         // declare variables to be used later on
         let self = this;
         this.isPlayerA = false;
+        this.isMyTurn = false;
         this.logicalBoard = {
             col0: [], col1: [], col2: [], col3: [], col4: [], col5: [], col6: []
         }
@@ -20,19 +22,48 @@ export default class GameScene extends Phaser.Scene {
         this.yVals = [551,471,391,311,231,151];
         this.boardCols = [];
         this.preview = [];
-        this.socket = io();        
+        this.socket = io();
+        this.gameOver = false;        
 
         // when 'isPlayerA' is emitted from server, set that player to player A(red)
-        this.socket.on('isPlayerA', function(){
+        this.socket.on('isPlayerA', (coinFlip) => {
             self.isPlayerA = true;
-        })
+        });
+
+        this.socket.on('whoseTurn', (coinFlip) => {
+            if (coinFlip === 0 && self.isPlayerA){
+                self.isMyTurn = true;
+                console.log('red goes first');
+            }
+            else if(coinFlip === 1 && self.isPlayerA === false){
+                self.isMyTurn = true;
+                console.log('yellow goes first');
+            }
+            
+        });
 
         // when a move is made, render disk in the appropriate color and add to logical board
         this.socket.on('moveMade', (moveCol, wasPlayerA) => {
             this.renderDisk(moveCol, wasPlayerA);
-            this.getBoardFromCol(moveCol).push(self.isPlayerA === true ? 'r' : 'y');
+            console.log('move made by ' + wasPlayerA);
+            this.getBoardFromCol(moveCol).push(wasPlayerA === true ? 'r' : 'y');
             this.checkDiagonal();
+            this.checkVerticalAndHorizontal();
+            if (this.gameOver === false){
+                if (self.isMyTurn){
+                    self.isMyTurn = false;
+                }
+                else{
+                    self.isMyTurn = true;
+                }
+            }
         });
+
+        this.socket.on('gameOver', (winner) => {
+            let winnerText = winner + ' won!';
+            self.add.text(300,70,winnerText);
+        });
+
 
         
         // create sprites for each board column and set them as interactive
@@ -44,7 +75,7 @@ export default class GameScene extends Phaser.Scene {
         // column 0 event listeners
         this.boardCols[0].on('pointerup', () => {
             // if column is not full, emit that a disk was dropped and the information
-            if (self.logicalBoard.col0.length < 6) {
+            if (self.logicalBoard.col0.length < 6 && self.isMyTurn) {
                 var moveCol = 0;
                 self.socket.emit('diskDropped', moveCol, self.isPlayerA);
             }
@@ -60,7 +91,7 @@ export default class GameScene extends Phaser.Scene {
         // column 1 event listeners
         this.boardCols[1].on('pointerup', () => {
             // if column is not full, emit that a disk was dropped and the information
-            if (self.logicalBoard.col1.length < 6) {
+            if (self.logicalBoard.col1.length < 6 && self.isMyTurn) {
                 var moveCol = 1;
                 self.socket.emit('diskDropped', moveCol, self.isPlayerA);
             }
@@ -75,7 +106,7 @@ export default class GameScene extends Phaser.Scene {
         });
         // column 2 event listeners
         this.boardCols[2].on('pointerup', () => {
-            if (self.logicalBoard.col2.length < 6) {
+            if (self.logicalBoard.col2.length < 6 && self.isMyTurn) {
                 var moveCol = 2;
                 self.socket.emit('diskDropped', moveCol, self.isPlayerA);
             }
@@ -91,7 +122,7 @@ export default class GameScene extends Phaser.Scene {
         // column 3 event listeners
         this.boardCols[3].on('pointerup', () => {
             // if column is not full, emit that a disk was dropped and the information
-            if (self.logicalBoard.col3.length < 6) {
+            if (self.logicalBoard.col3.length < 6 && self.isMyTurn) {
                 var moveCol = 3;
                 self.socket.emit('diskDropped', moveCol, self.isPlayerA);
             }
@@ -107,7 +138,7 @@ export default class GameScene extends Phaser.Scene {
         // column 4 event listeners
         this.boardCols[4].on('pointerup', () => {
             // if column is not full, emit that a disk was dropped and the information
-            if (self.logicalBoard.col4.length < 6) {
+            if (self.logicalBoard.col4.length < 6 && self.isMyTurn) {
                 var moveCol = 4;
                 self.socket.emit('diskDropped', moveCol, self.isPlayerA);
             }
@@ -123,7 +154,7 @@ export default class GameScene extends Phaser.Scene {
         // column 5 event listeners
         this.boardCols[5].on('pointerup', () => {
             // if column is not full, emit that a disk was dropped and the information
-            if (self.logicalBoard.col5.length < 6) {
+            if (self.logicalBoard.col5.length < 6 && self.isMyTurn) {
                 var moveCol = 5;
                 self.socket.emit('diskDropped', moveCol, self.isPlayerA);
             }
@@ -139,7 +170,7 @@ export default class GameScene extends Phaser.Scene {
         // column 6 event listeners
         this.boardCols[6].on('pointerup', () => {
             // if column is not full, emit that a disk was dropped and the information
-            if (self.logicalBoard.col6.length < 6) {
+            if (self.logicalBoard.col6.length < 6 && self.isMyTurn) {
                 var moveCol = 6;
                 self.socket.emit('diskDropped', moveCol, self.isPlayerA);
             }
@@ -194,7 +225,6 @@ export default class GameScene extends Phaser.Scene {
 
     // check if either player has won diagonally
     checkDiagonal(){
-        var gameOver = false;
         for (var i = 0; i < 7; i++){
             var col = this.getBoardFromCol(i);
             for (var j = 0; j < col.length ; j++){
@@ -203,22 +233,26 @@ export default class GameScene extends Phaser.Scene {
                         // check bottom 3 rows of first 3 columns
                         if (col[j] === 'r' && this.getBoardFromCol(i+1)[j+1] === 'r' && this.getBoardFromCol(i+2)[j+2] === 'r' && this.getBoardFromCol(i+3)[j+3] === 'r'){
                             // red won diagonally
-                            console.log('red won');
+                            this.socket.emit('gameOver', 'red');
+                            this.gameOver = true;
                         }
                         else if(col[j] === 'y' && this.getBoardFromCol(i+1)[j+1] === 'y' && this.getBoardFromCol(i+2)[j+2] === 'y' && this.getBoardFromCol(i+3)[j+3] === 'y'){
                             // yellow won diagonally
-                            console.log('yellow won');
+                            this.socket.emit('gameOver', 'yellow');
+                            this.gameOver = true;
                         }
                     }
                     // check top 3 rows of first 3 columns
                     else if (j >= 3){
                         if (col[j] === 'r' && this.getBoardFromCol(i+1)[j-1] === 'r' && this.getBoardFromCol(i+2)[j-2] === 'r' && this.getBoardFromCol(i+3)[j-3] === 'r'){
                             // red won diagonally
-                            console.log('red won');
+                            this.socket.emit('gameOver', 'red');
+                            this.gameOver = true;
                         }
                         else if(col[j] === 'y' && this.getBoardFromCol(i+1)[j-1] === 'y' && this.getBoardFromCol(i+2)[j-2] === 'y' && this.getBoardFromCol(i+3)[j-3] === 'y'){
                             // yellow won diagonally
-                            console.log('yellow won');
+                            this.socket.emit('gameOver', 'yellow');
+                            this.gameOver = true;
                         }
                     }
                 }
@@ -226,21 +260,25 @@ export default class GameScene extends Phaser.Scene {
                     if (j < 3){
                         if (col[j] === 'r' && this.getBoardFromCol(i-1)[j+1] === 'r' && this.getBoardFromCol(i-2)[j+2] === 'r' && this.getBoardFromCol(i-3)[j+3 === 'r']){
                             // red won diagonally
-                            console.log('red won');
+                            this.socket.emit('gameOver', 'red');
+                            this.gameOver = true;
                         }
                         else if (col[j] === 'y' && this.getBoardFromCol(i-1)[j+1] === 'y' && this.getBoardFromCol(i-2)[j+2] === 'y' && this.getBoardFromCol(i-3)[j+3 === 'y']){
                             // yellow won diagonally
-                            console.log('yellow won');
+                            this.socket.emit('gameOver', 'yellow');
+                            this.gameOver = true;
                         }
                     }
                     else if (j >= 3){
                         if (col[j] === 'r' && this.getBoardFromCol(i-1)[j-1] === 'r' && this.getBoardFromCol(i-2)[j-2] === 'r' && this.getBoardFromCol(i-3)[j-3] === 'r'){
                             // red won diagonally
-                            console.log('red won');
+                            this.socket.emit('gameOver', 'red');
+                            this.gameOver = true;
                         }
                         else if (col[j] === 'y' && this.getBoardFromCol(i-1)[j-1] === 'y' && this.getBoardFromCol(i-2)[j-2] === 'y' && this.getBoardFromCol(i-3)[j-3] === 'y'){
                             // yellow won diagonally
-                            console.log('yellow won');
+                            this.socket.emit('gameOver', 'yellow');
+                            this.gameOver = true;
                         }
                     }
                 }
@@ -256,11 +294,13 @@ export default class GameScene extends Phaser.Scene {
             // check for horizontal wins 
             if (i < 4){
                 for (var j = 0; j < col.length; j++){
-                    if (col[j] === 'r' && this.getBoardFromCol(i+1)[j] === 'r' && this.getBoardFromCol(i+2)[j] === 'r' && this.getBoardFromCol(i+3) === 'r'){
-                        console.log('red won');
+                    if (col[j] === 'r' && this.getBoardFromCol(i+1)[j] === 'r' && this.getBoardFromCol(i+2)[j] === 'r' && this.getBoardFromCol(i+3)[j] === 'r'){
+                        this.socket.emit('gameOver', 'red');
+                        this.gameOver = true;
                     }
-                    else if (col[j] === 'y' && this.getBoardFromCol(i+1)[j] === 'y' && this.getBoardFromCol(i+2)[j] === 'y' && this.getBoardFromCol(i+3) === 'y'){
-                        console.log('yellow won');
+                    else if (col[j] === 'y' && this.getBoardFromCol(i+1)[j] === 'y' && this.getBoardFromCol(i+2)[j] === 'y' && this.getBoardFromCol(i+3)[j] === 'y'){
+                        this.socket.emit('gameOver', 'yellow');
+                        this.gameOver = true;
                     }
                 }
             }
@@ -268,10 +308,12 @@ export default class GameScene extends Phaser.Scene {
             if (col.length >= 4){
                 for(var j = 0; j < 3; j++){
                     if (col[j] === 'r' && col[j+1] === 'r' && col[j+2] === 'r' && col[j+3] === 'r'){
-                        console.log('red won');
+                        this.socket.emit('gameOver', 'red');
+                        this.gameOver = true;
                     }
                     else if (col[j] === 'y' && col[j+1] === 'y' && col[j+2] === 'y' && col[j+3] === 'y'){
-                        console.log('yellow won');
+                        this.socket.emit('gameOver', 'yellow');
+                        this.gameOver = true;
                     }
                 }
             }
