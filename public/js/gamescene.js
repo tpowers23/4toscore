@@ -30,11 +30,14 @@ export default class GameScene extends Phaser.Scene {
             self.isPlayerA = true;
         });
 
+        // socket event determines whose turn it is based on the random coin flip (0 or 1)
         this.socket.on('whoseTurn', (coinFlip) => {
+            // if coin flip is 0, red goes first
             if (coinFlip === 0 && self.isPlayerA){
                 self.isMyTurn = true;
                 console.log('red goes first');
             }
+            // if coin flip is 1, yellow goes first
             else if(coinFlip === 1 && self.isPlayerA === false){
                 self.isMyTurn = true;
                 console.log('yellow goes first');
@@ -270,12 +273,12 @@ export default class GameScene extends Phaser.Scene {
                         }
                     }
                     else if (j >= 3){
-                        if (col[j] === 'r' && this.getBoardFromCol(i-1)[j-1] === 'r' && this.getBoardFromCol(i-2)[j-2] === 'r' && this.getBoardFromCol(i-3)[j-3] === 'r'){
+                        if (col[j] === 'r' && this.getBoardFromCol(i-1)[j+1] === 'r' && this.getBoardFromCol(i-2)[j+2] === 'r' && this.getBoardFromCol(i-3)[j+3] === 'r'){
                             // red won diagonally
                             this.socket.emit('gameOver', 'red');
                             this.gameOver = true;
                         }
-                        else if (col[j] === 'y' && this.getBoardFromCol(i-1)[j-1] === 'y' && this.getBoardFromCol(i-2)[j-2] === 'y' && this.getBoardFromCol(i-3)[j-3] === 'y'){
+                        else if (col[j] === 'y' && this.getBoardFromCol(i-1)[j+1] === 'y' && this.getBoardFromCol(i-2)[j+2] === 'y' && this.getBoardFromCol(i-3)[j+3] === 'y'){
                             // yellow won diagonally
                             this.socket.emit('gameOver', 'yellow');
                             this.gameOver = true;
