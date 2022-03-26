@@ -24,11 +24,13 @@ export default class GameScene extends Phaser.Scene {
         this.preview = [];
         this.socket = io();
         this.gameOver = false;        
+        
 
         // when 'isPlayerA' is emitted from server, set that player to player A(red)
         this.socket.on('isPlayerA', (coinFlip) => {
             self.isPlayerA = true;
         });
+
 
         // socket event determines whose turn it is based on the random coin flip (0 or 1)
         this.socket.on('whoseTurn', (coinFlip) => {
@@ -45,8 +47,10 @@ export default class GameScene extends Phaser.Scene {
             
         });
 
+        
+
         // when a move is made, render disk in the appropriate color and add to logical board
-        this.socket.on('moveMade', (moveCol, wasPlayerA) => {
+        this.socket.on('moveMade', (moveCol, wasPlayerA, roomId) => {
             this.renderDisk(moveCol, wasPlayerA);
             console.log('move made by ' + wasPlayerA);
             this.getBoardFromCol(moveCol).push(wasPlayerA === true ? 'r' : 'y');
@@ -73,6 +77,7 @@ export default class GameScene extends Phaser.Scene {
         for (var i = 0; i < 7; i++){
             this.boardCols[i] = this.add.sprite(this.xVals[i],350,'boardCol').setInteractive();
         }
+
 
         // set event handlers for each column ---------------------------------------------------------------------------------------------------------------------
         // column 0 event listeners
