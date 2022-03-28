@@ -13,6 +13,7 @@ let gameRoom = {
     roomId: '',
     playerAId: '',
     playerBId: '',
+    gameIsOver: null,
 };
 
 
@@ -57,30 +58,34 @@ io.on('connection', async (socket) =>  {
 
     socket.on('gameOver', (winner) => {
         let roomId = Array.from(socket.rooms)[1];
+        let roomObj = getRoomObjFromId(socket.id);
+        roomObj.gameIsOver = true;
         io.to(roomId).emit('gameOver', winner);
         // run database call to change stats based on who won **********************************************************
         /* check if it is a ranked match, if so grab the users' multipliers.  Add points to winner, subtract points
            from loser based on multiplier.  */
         
-
     });
 
 
-    // ADD IF STATEMENT FOR IF OPPONENT ALREADY DISCONNECTED*************************************************************************************************
     socket.on('disconnect', () => {
           console.log('A user disconnected:' + socket.id);
           // call function to get the room object of the room that was left
           leftRoomObj = getRoomObjFromId(socket.id);
-          // if the room was an open room, remove that from the open rooms array
-          if (leftRoomObj.playerBId === null){
-            openRooms.splice([openRooms.indexOf(leftRoomObj)]);
-          }
-          else{
-            // send to room: if player A left then B won, if B left then A won
-            io.to(leftRoomObj.roomId).emit('gameOver', leftRoomObj.playerAId === socket.id ? 'yellow' : 'red');
-            activeRooms.splice(activeRooms.indexOf(leftRoomObj));
+          if (leftRoomObj != undefined){
+            // if the room was an open room, remove that from the open rooms array
+            if (leftRoomObj.playerBId === null ){
+                openRooms.splice([openRooms.indexOf(leftRoomObj)]);
+            }
+            else{
+                // send to room: if player A left then B won, if B left then A won
+                if (leftRoomObj.gameIsOver === false){
+                    io.to(leftRoomObj.roomId).emit('gameOver', leftRoomObj.playerAId === socket.id ? 'yellow' : 'red');
+                }
+                activeRooms.splice(activeRooms.indexOf(leftRoomObj));
           }
           players = players.filter(player => player !== socket.id);
+        }
           // run database call to change stats based on who won *********************************************************
           /* check if it is a ranked match, if so grab the users' multipliers.  Add points to winner, subtract points
            from loser based on multiplier.  */
@@ -98,7 +103,7 @@ createNewRoom = (socket) => {
     let a = Object.create(gameRoom);
     a.roomId = crypto.randomBytes(5).toString('hex');
     a.playerAId = socket.id;
-    a.playerBId = null; a.playerAUsername = null; a.playerBUsername = null;
+    a.playerBId = null; a.playerAUsername = null; a.playerBUsername = null; a.gameIsOver = null;
     openRooms.push(a);
     return a;
 };

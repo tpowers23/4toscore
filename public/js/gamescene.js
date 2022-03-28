@@ -23,7 +23,8 @@ export default class GameScene extends Phaser.Scene {
         this.boardCols = [];
         this.preview = [];
         this.socket = io();
-        this.gameOver = false;        
+        this.gameOver = false;
+        this.turnIndicator;        
         
 
         // when 'isPlayerA' is emitted from server, set that player to player A(red)
@@ -35,16 +36,20 @@ export default class GameScene extends Phaser.Scene {
         // socket event determines whose turn it is based on the random coin flip (0 or 1)
         this.socket.on('whoseTurn', (coinFlip) => {
             // if coin flip is 0, red goes first
-            if (coinFlip === 0 && self.isPlayerA){
-                self.isMyTurn = true;
-                console.log('red goes first');
+            if (coinFlip === 0 ){
+                if (self.isPlayerA){
+                    self.isMyTurn = true;
+                    console.log('red goes first');
+                }
             }
             // if coin flip is 1, yellow goes first
-            else if(coinFlip === 1 && self.isPlayerA === false){
-                self.isMyTurn = true;
-                console.log('yellow goes first');
+            else if(coinFlip === 1 ){
+                if (self.isPlayerA === false){
+                    self.isMyTurn = true;
+                    console.log('yellow goes first');
+                }
             }
-            
+            self.turnIndicator = this.add.rectangle(50,50,20,20, coinFlip === 0 ? 0xff0000 : 0xffff00 );
         });
 
         
@@ -57,6 +62,8 @@ export default class GameScene extends Phaser.Scene {
             this.checkDiagonal();
             this.checkVerticalAndHorizontal();
             if (this.gameOver === false){
+                // flip turn indicator color here
+                this.turnIndicator.fillColor = this.turnIndicator.fillColor === 0xffff00 ? 0xff0000 : 0xffff00;
                 if (self.isMyTurn){
                     self.isMyTurn = false;
                 }
