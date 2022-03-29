@@ -4,9 +4,13 @@ import GameScene from './gamescene.js';
 
 var config = {
     type: Phaser.AUTO,
-    width: 800,
+    parent: 'phaser-game',
+    width: 1000,
     height: 600,
     autoCenter: true,
+    dom: {
+        createContainer: true
+    },
     scene: [GameScene]
 };
 

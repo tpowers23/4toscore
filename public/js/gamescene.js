@@ -7,6 +7,7 @@ export default class GameScene extends Phaser.Scene {
     preload() {
         // preload board images
         this.load.image('boardCol', 'assets/boardCol.png');
+        this.load.html("form", "assets/form.html");
     }
     
     create() {
@@ -24,14 +25,13 @@ export default class GameScene extends Phaser.Scene {
         this.preview = [];
         this.socket = io();
         this.gameOver = false;
-        this.turnIndicator;        
-        
+        this.turnIndicator;
+        this.chatMessages = [];
 
         // when 'isPlayerA' is emitted from server, set that player to player A(red)
         this.socket.on('isPlayerA', (coinFlip) => {
             self.isPlayerA = true;
         });
-
 
         // socket event determines whose turn it is based on the random coin flip (0 or 1)
         this.socket.on('whoseTurn', (coinFlip) => {
@@ -51,8 +51,6 @@ export default class GameScene extends Phaser.Scene {
             }
             self.turnIndicator = this.add.rectangle(50,50,20,20, coinFlip === 0 ? 0xff0000 : 0xffff00 );
         });
-
-        
 
         // when a move is made, render disk in the appropriate color and add to logical board
         this.socket.on('moveMade', (moveCol, wasPlayerA, roomId) => {
@@ -78,12 +76,51 @@ export default class GameScene extends Phaser.Scene {
             self.add.text(275,50,winnerText,{ fontSize: 36 });
         });
 
-
-        
         // create sprites for each board column and set them as interactive
         for (var i = 0; i < 7; i++){
             this.boardCols[i] = this.add.sprite(this.xVals[i],350,'boardCol').setInteractive();
         }
+
+        // create chat elements onscreen
+        this.inputForm = this.add.dom(375,255).createFromCache("form");
+        this.chat = this.add.text(685, 110, "", { lineSpacing: 15, backgroundColor: "#303030", color: "#FFFFFF", padding: 10, fontStyle: "bold", fontSize: 20 });
+        this.chat.setFixedSize(300,440);
+        this.enterKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+        this.enterKey.on("down", event => {
+            let chatbox = this.inputForm.getChildByName("chat");
+            if (chatbox.value != "") {
+                self.socket.emit('chatMsg', chatbox.value, self.isPlayerA);
+                chatbox.value = "";
+            }
+        });
+
+        this.socket.on('chatMsg', (message, wasPlayerA) => {
+            let team = wasPlayerA === true ? '[r]:' : '[y]:';
+            let chunks = Math.ceil(message.length / 16);
+            let start = 0, end = 18;
+            if (message.length > 20){
+                for (i = 0; i < chunks; i++){
+                    let tempMsg = (message.slice(start, end));
+                    start += 18, end +=18;
+                    if (tempMsg != ''){
+                        if (i === 0){
+                            this.chatMessages.push(team + tempMsg);
+                        }
+                        else{
+                            this.chatMessages.push(tempMsg.trim());
+                        }
+                    }
+                }
+            }
+            else{
+                this.chatMessages.push(team + message);
+            }
+            
+            if (this.chatMessages.length > 12) {
+                this.chatMessages.shift();
+            }
+            this.chat.setText(this.chatMessages);
+        });
 
 
         // set event handlers for each column ---------------------------------------------------------------------------------------------------------------------

@@ -56,6 +56,10 @@ io.on('connection', async (socket) =>  {
         io.to(Array.from(socket.rooms)[1]).emit('moveMade', moveCol, isPlayerA);
     });
 
+    socket.on('chatMsg', function(message, wasPlayerA){
+        io.to(Array.from(socket.rooms)[1]).emit('chatMsg', message, wasPlayerA);
+    });
+
     socket.on('gameOver', (winner) => {
         let roomId = Array.from(socket.rooms)[1];
         let roomObj = getRoomObjFromId(socket.id);
