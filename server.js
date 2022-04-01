@@ -7,13 +7,18 @@ var server = require('http').Server(app);
 var io = require('socket.io')(server);
 // create variables and object for rooms
 let players = [];
+const openRankedRooms = [];
+const friendRooms = [];
 const openRooms = [];
 const activeRooms = [];
 let gameRoom = {
     roomId: '',
     playerAId: '',
     playerBId: '',
+    playerAUsername: '',
+    playerBUsername: '',
     gameIsOver: null,
+    isRankedGame: null
 };
 
 
@@ -28,27 +33,87 @@ io.on('connection', async (socket) =>  {
 
 	console.log('A user connected:' + socket.id);
     // if there are no rooms available to join
-    if (openRooms.length < 1){
-        // create new room, let socket join it, and set that player as red
-        let newRoom = createNewRoom(socket);
-        await socket.join(newRoom.roomId);
-        io.to(socket.id).emit('isPlayerA');
+    // IF (current URL points to /unranked)
+        if (openRooms.length < 1){
+            // create new room, let socket join it, and set that player as red
+            let newRoom = createNewRoom(socket, 'unranked');
+            await socket.join(newRoom.roomId);
+            io.to(socket.id).emit('isPlayerA');
+        }
+        else {
+            // pick a random open room and join it
+            let randomRoom = Math.floor(Math.random()*openRooms.length);
+            await socket.join(openRooms[randomRoom].roomId);
+            openRooms[randomRoom].playerBId = socket.id;
+            // do coin flip for whose turn it is, send that to client
+            let coinFlip = Math.floor(Math.random() * 2);
+            let roomId = openRooms[randomRoom].roomId;
+            io.in(roomId).emit('whoseTurn', coinFlip);
+            // add room to active rooms and remove it from the list of open rooms
+            activeRooms.push(openRooms[randomRoom]);
+            openRooms.splice(randomRoom);
+        }
+    /*
+    else if (current URL points to /ranked) {
+        // CALL DATABASE TO GET RANK FOR CURRENT PLAYER on next line
+        let currPlayerRankPoints;
+        if (openRankedRooms.length < 1){
+            //create new room, let socket join it, set this player as red
+            let newRoom = createNewRoom(socket, 'ranked');
+            newRoom.playerARankPoints = **rank variable defined at top of else if**
+            await socket.join(newRoom.roomId);
+            io.to(socket.id).emit('isPlayerA');
+        }
+        else{
+            let diff, min;
+            let index = 0;
+            for (let i = 0; i < openRankedRooms.length; i++){
+                if (i === 0){
+                    min = Math.abs(openRankedRooms[i].playerARankPoints - currPlayerRankPoints);
+                }
+                diff = Math.abs(openRankedRooms[i].playerARankPoints - currPlayerRankPoints);
+                if (diff < min){
+                    min = diff;
+                    index = i;
+                }
+            }
+            await socket.join(openRankedRooms[index].roomId);
+            // do coin flip for whose turn it is, send that to client
+            let coinFlip = Math.floor(Math.random() * 2);
+            io.in(openRankedRooms[index].roomId).emit('whoseTurn', coinFlip);
+            activeRooms.push(openRankedRooms[index]);
+            openRankedRooms.splice(index);
+        }
     }
-    else {
-        // pick a random open room and join it
-        let randomRoom = Math.floor(Math.random()*openRooms.length);
-        await socket.join(openRooms[randomRoom].roomId);
-        openRooms[randomRoom].playerBId = socket.id;
-        // do coin flip for whose turn it is, send that to client
-        let coinFlip = Math.floor(Math.random() * 2);
-        let roomId = openRooms[randomRoom].roomId;
-        io.in(roomId).emit('whoseTurn', coinFlip);
-        // add room to active rooms and remove it from the list of open rooms
-        activeRooms.push(openRooms[randomRoom]);
-        openRooms.splice(randomRoom);
+    else if (*play with friends*){
+        let friendName = *name of friend searched for*;
+        let roomIndex;
+        let joining = false;
+        if (friendRooms.length > 0){
+            for (int i = 0; i < friendRooms.length; i++){
+                if (friendRooms[i].playerAUsername === friendName){
+                    roomIndex = i;
+                    joining = true;
+                }
+            }
+            if (joining){
+                await socket.join(friendRooms[roomIndex].roomId);
+                // do coin flip for whose turn it is, send that to client
+                let coinFlip = Math.floor(Math.random() * 2);
+                io.in(friendRooms[roomIndex].roomId).emit('whoseTurn', coinFlip);
+                activeRooms.push(friendRooms[roomIndex]);
+                friendRooms.splice(roomIndex);
+            }
+            else {
+                //create new room, let socket join it, set this player as red
+                let newRoom = createNewRoom(socket, 'friends');
+                await socket.join(newRoom.roomId);
+                io.to(socket.id).emit('isPlayerA');
+            }
+        }
     }
-    
-
+        
+    */
     players.push(socket.id);
 
     // when event is received, send it out to the room of the client it is from
@@ -103,12 +168,21 @@ console.log(`Listening on ${server.address().port}`);
 });
 
 // create a new room object based around the socket rooms for the game
-createNewRoom = (socket) => {
+createNewRoom = (socket,gameType) => {
     let a = Object.create(gameRoom);
     a.roomId = crypto.randomBytes(5).toString('hex');
     a.playerAId = socket.id;
-    a.playerBId = null; a.playerAUsername = null; a.playerBUsername = null; a.gameIsOver = null;
-    openRooms.push(a);
+    a.playerBId = null; a.playerAUsername = null; a.playerBUsername = null; a.gameIsOver = null; a.gameType = gameType;
+    a.playerARankPoints = null;
+    if (gameType === 'ranked'){
+        openRankedRooms.push(a);
+    }
+    else if (gameType === 'unranked'){
+        openRooms.push(a);
+    }
+    else if (gameType === 'friends'){
+        friendRooms.push(a);
+    }
     return a;
 };
 

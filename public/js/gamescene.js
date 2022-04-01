@@ -26,6 +26,7 @@ export default class GameScene extends Phaser.Scene {
         this.socket = io();
         this.gameOver = false;
         this.turnIndicator;
+        this.turnText;
         this.chatMessages = [];
 
         // when 'isPlayerA' is emitted from server, set that player to player A(red)
@@ -49,17 +50,21 @@ export default class GameScene extends Phaser.Scene {
                     console.log('yellow goes first');
                 }
             }
-            self.turnIndicator = this.add.rectangle(50,50,20,20, coinFlip === 0 ? 0xff0000 : 0xffff00 );
+            let tempName = coinFlip === 0 ? 'Red' : 'Yellow';
+            self.turnIndicator = this.add.rectangle(50,60,20,20, coinFlip === 0 ? 0xff0000 : 0xffff00 );
+            self.turnText = this.add.text(20,20,'Turn:',{ fontSize: 26 });
+            this.chatMessages.push('Game started! ' + tempName);
+            this.chatMessages.push('goes first!');
+            this.chat.setText(this.chatMessages);
         });
 
         // when a move is made, render disk in the appropriate color and add to logical board
         this.socket.on('moveMade', (moveCol, wasPlayerA, roomId) => {
-            this.renderDisk(moveCol, wasPlayerA);
-            console.log('move made by ' + wasPlayerA);
-            this.getBoardFromCol(moveCol).push(wasPlayerA === true ? 'r' : 'y');
-            this.checkDiagonal();
-            this.checkVerticalAndHorizontal();
             if (this.gameOver === false){
+                this.renderDisk(moveCol, wasPlayerA);
+                this.getBoardFromCol(moveCol).push(wasPlayerA === true ? 'r' : 'y');
+                this.checkDiagonal();
+                this.checkVerticalAndHorizontal();
                 // flip turn indicator color here
                 this.turnIndicator.fillColor = this.turnIndicator.fillColor === 0xffff00 ? 0xff0000 : 0xffff00;
                 if (self.isMyTurn){
@@ -74,6 +79,7 @@ export default class GameScene extends Phaser.Scene {
         this.socket.on('gameOver', (winner) => {
             let winnerText = winner + ' won!';
             self.add.text(275,50,winnerText,{ fontSize: 36 });
+            self.gameOver = true;
         });
 
         // create sprites for each board column and set them as interactive
@@ -94,6 +100,7 @@ export default class GameScene extends Phaser.Scene {
             }
         });
 
+        // event for receiving a chat message from the server (originated from a player)
         this.socket.on('chatMsg', (message, wasPlayerA) => {
             let team = wasPlayerA === true ? '[r]:' : '[y]:';
             let chunks = Math.ceil(message.length / 16);
@@ -117,7 +124,10 @@ export default class GameScene extends Phaser.Scene {
             }
             
             if (this.chatMessages.length > 12) {
-                this.chatMessages.shift();
+                let numLines = this.chatMessages.length - 12;
+                for (let i = 0; i < numLines; i++){
+                    this.chatMessages.shift();
+                }
             }
             this.chat.setText(this.chatMessages);
         });
